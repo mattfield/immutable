@@ -1,7 +1,8 @@
-'use strict'
+'use strict';
 
 var p = require('persistent-hash-trie')
 var util = require('./util')
+var object = require('./object')
 
 // exported constructor
 // -- accepts attrs, and auto-assocs them on
@@ -57,9 +58,19 @@ var array = function(trie, length){
         return util.extend([], p.mutable(trie))
     }
 
+
+    this.immutable = true
+
     util.freeze(this)
 }
 
+var firstMember = function(a){
+    for ( var i = 0, len = a.length; i < len; i += 1 ) if ( a.has(i) ) return i
+}
+
+var lastMember = function(a){
+    for ( var i = a.length - 1; i  >= 0; i -= 1 ) if ( a.has(i) ) return i
+}
 
 
 // prototype to both constructors
@@ -69,5 +80,86 @@ module.exports.prototype = array.prototype = {
 
     // futher cementing the lie that the prototype 'belongs' to the exported
     // constructor
-    constructor: module.exports
- }
+    constructor: module.exports,
+
+    map: function(fn){
+        var result = this
+        for ( var i = 0, len = this.length; i < len; i += 1 ) {
+            if ( this.has(i) ) result = result.assoc(i, fn(this.get(i), i, this))
+        }
+        return result
+    },
+
+    // iteration methods
+    forEach: function(fn){
+        for ( var i = 0, len = this.length; i < len; i += 1 ) {
+            if ( this.has(i) ) fn(this.get(i), i.toString(), this)
+        }
+    },
+
+    every: function(predicate){
+        for ( var i = 0, len = this.length; i < len; i += 1 ) {
+            if ( this.has(i) ) {
+                if ( predicate(this.get(i), i.toString(), this) !== true ) return false
+            }
+        }
+        return true
+    },
+
+    some: function(predicate){
+        for ( var i = 0, len = this.length; i < len; i += 1 ) {
+            if ( this.has(i) ) {
+                if ( predicate(this.get(i), i.toString(), this) === true ) return true
+            }
+        }
+        return false
+    },
+
+    filter: function(predicate){
+        var result = new array()
+        for ( var i = 0, len = this.length; i < len; i += 1 ) {
+            if ( this.has(i) ) {
+                if ( predicate(this.get(i), i.toString(), this) === true ) result = result.assoc(result.length, this.get(i))
+            }
+        }
+        return result
+    },
+
+    reduce: function(fn, seed){
+        if ( arguments.length === 1 ) {
+            var member = firstMember(this)
+            return this.dissoc(member).reduce(fn, this.get(member))
+        }
+
+        for ( var i = 0, len = this.length; i < len; i += 1 ) {
+            if ( this.has(i) ) seed = fn(seed, this.get(i), i.toString(), this)
+        }
+        return seed
+    },
+
+    // array-specific methods
+    reduceRight: function(fn, seed){
+        if ( arguments.length === 1 ) {
+            var member = lastMember(this)
+            return this.dissoc(member).reduceRight(fn, this.get(member))
+        }
+
+        for ( var i = this.length - 1; i  >= 0; i -= 1 ) {
+            if ( this.has(i) ) seed = fn(seed, this.get(i), i.toString(), this)
+        }
+        return seed
+    },
+
+    push: function(v){
+        return this.assoc(this.length, v)
+    },
+
+    indexOf: function(v){
+        for ( var i = 0, len = this.length; i < len; i += 1 ) {
+            if ( this.has(i) && util.areEqual(v, this.get(i)) )  return i
+        }
+        return -1
+    },
+
+    equal: object.prototype.equal
+}

@@ -1,4 +1,4 @@
-'use strict'
+'use strict';
 
 var p = require('persistent-hash-trie')
 var util = require('./util')
@@ -51,6 +51,33 @@ var object = function(trie){
         return p.mutable(trie)
     }
 
+    var separateSeed = function(o){
+        var keyVal = p.reduce(trie, function(seed, val, key){
+            return p.reduce.Break({ key: key, val: val })
+        })
+
+        return {
+            seed: keyVal.val,
+            rest: o.dissoc(keyVal.key)
+        }
+    }
+
+    this.reduce = function(fn, seed){
+        var orig = this
+
+        if ( arguments.length === 1 ) {
+            var seedAndRest = separateSeed(this)
+            seed = seedAndRest.seed
+            return seedAndRest.rest.reduce(fn, seed)
+        }
+
+        return p.reduce(trie, function(seed, val, key){
+            return fn(seed, val, key, orig)
+        }, seed)
+    }
+
+    this.immutable = true
+
     util.freeze(this)
 }
 
@@ -61,5 +88,56 @@ module.exports.prototype = object.prototype = {
 
     // futher cementing the lie that the prototype 'belongs' to the exported
     // constructor
-    constructor: module.exports
+    constructor: module.exports,
+
+    // iteration methods
+    map: function(fn){
+        var orig = this
+        return this.reduce(function(o, val, key){
+            return o.assoc(key, fn(val, key, orig))
+        }, orig)
+    },
+
+    forEach: function(fn){
+        var orig = this
+        return this.reduce(function(o, val, key){
+            fn(val, key, orig)
+        }, undefined)
+    },
+
+    every: function(predicate){
+        var orig = this
+        return this.reduce(function(o, val, key){
+            if ( predicate(val, key, orig) === true ) return true
+            else                                      return new p.reduce.Break(false)
+        }, true)
+    },
+
+    some: function(predicate){
+        var orig = this
+        return this.reduce(function(o, val, key){
+            if ( predicate(val, key, orig) === true ) return new p.reduce.Break(true)
+            else                                      return false
+        }, false)
+    },
+
+    filter: function(predicate){
+        var orig = this
+        return this.reduce(function(o, val, key){
+            if ( predicate(val, key, orig) === true ) return o.assoc(key, val)
+            else                                      return o
+        }, new object())
+    },
+
+    // value equality!
+    equal: function(val1){
+        var val2 = this
+        if ( val1 === val2 ) return true;
+        if ( !val1 || !val1.immutable ) return false;
+
+        var equal1 = val1.every(function(v, k){ return util.areEqual(v, val2.get(k)) })
+        var equal2 = val2.every(function(v, k){ return util.areEqual(v, val1.get(k)) })
+
+        return equal1 && equal2
+    }
 }

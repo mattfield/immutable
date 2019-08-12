@@ -1,81 +1,79 @@
+# NOTE
+This project is no longer actively supported.  If anyone is interested in becoming the new maintainer, don't hesitate to contact me (hughfdjackson@googlemail.com).  
+
+The go-to immutable library is https://github.com/facebook/immutable-js. 
+
 # immutable
 
-Effecient immutable data-structures in javascript.
 
-## Why?
-
-Mutability causes headaches; immutability soothes them.  JavaScript's Object and Array are crying out for immutable counterparts to complement first-class functions.
-
-## Support
+Effecient immutable collections in javascript.
 
 [![browser support](https://ci.testling.com/hughfdjackson/immutable.png)](http://ci.testling.com/hughfdjackson/immutable)
 
-## Example
+## Why?
 
-```javascript
-var im = require('immutable')
-var person = im.object({ firstName: 'hugh', secondName: 'jackson' })
+Using immutable objects can make code easier to reason about, allowing programmers to geniunely create sections of their programs that operate on a 'data-in/data-out' basis.
 
-var personWithAge = person.assoc({ age: 24 })
+This style of code is easy to test, and use in a mix-and-match style.
 
-person.has('age')          //= false
-personWithAge.has('age')   //= true
-personWithAge.get('age')   //= 24
+# Install
+
+### npm
+
+```bash
+npm install immutable
 ```
 
-## Install
+### browser
 
-`npm install immutable`
+Download build/immutable.js, and include it as a script tag.
 
-## immutable.object
+### AMD/require.js
 
-Create an empty immutable object:
+Download build/immutable.js, and require it in:
 
 ```javascript
-var emptyObject = im.object()
+require(['libs/immutable'], function(immutable){
+  // ... assuming immutable is in libs/immutable.js, now it's ready to use
+})
 ```
 
-Or define the initial set of properties:
+# Usage
+
+Immutable has two types of collection: objects and arrays.  Like regular JavaScript Objects and  Arrays, both act as key:value stores (using strings as the keys).
+
+## Basic Manipulation
+
+### creation
+
 ```javascript
 var person = im.object({ name: 'joe bloggs', age: 34 })
+var numbers = im.array([1, 2, 3, 4, 5])
 ```
 
 ### .assoc
 
-Create a new immutable object with a property added or updated:
-
 ```javascript
-var emptyObject = im.object()
+var emptyObj = im.object()
+var person = emptyObj.assoc({ name: 'joe bloggs', age: 34 })
+var personWithSports = person.assoc('sport', 'golf')
 
-var basicPerson = emptyObject.assoc('human', true)
-```
-
-Or pass an object to define multiple properties at once:
-```javascript
-var personRecord = basicPerson.assoc({ name: 'joe bloggs', age: 34 })
+var emptyArr = im.array()
+var numbers = emptyArr.assoc([1, 2, 3, 4, 5])
+var upTo6 = numbers.assoc(5, 6)
 ```
 
 ### .get
 
-Get a property:
-
 ```javascript
 var person = im.object({ name: 'joe bloggs', age: 34 })
-
 person.get('age') //= 34
-```
 
-It works on numeric keys too, although you're more likely to use an array for this:
-
-```javascript
-var readingList = im.object({ 1: 'Operating System Design: The Xinu Approach' })
-
-readingList.get(1) //= 'Operating System Design: The Xinu Approach'
+var numbers = im.array([1, 2, 3, 4, 5])
+numbers.get(0) //= 1
 ```
 
 ### .has
-
-Check if an immutable object has a property:
 
 ```javascript
 var person = im.object({ name: 'joe bloggs', age: 34 })
@@ -86,14 +84,19 @@ person.has('discography') //= false
 
 ### .dissoc
 
-Create a new immutable object *without* a property:
+Create a collection like this one, but without a particular property:
 
 ```javascript
 var person = im.object({ name: 'joe bloggs', age: 34 })
-
 var personShyAboutAge = person.dissoc('age')
 
-personShyAboutAge.get('age') //= undefined
+personShyAboutAge.has('age') //= false
+
+var numbers = im.array([1, 2, 3, 4, 5])
+var upTo4 = numbers.dissoc(4) // dissocs the 4th key
+
+numbers.has(4) //= true
+upTo4.has(4)   //= false
 ```
 
 ### .mutable / .toJSON
@@ -101,9 +104,7 @@ personShyAboutAge.get('age') //= undefined
 Create a regular JavaScript object from an immutable one:
 
 ```javascript
-
 var person = im.object({ name: 'joe bloggs', age: 34 })
-
 person.mutable() //= { name: 'joe bloggs', age: 34 }
 ```
 
@@ -111,60 +112,155 @@ The `.toJSON` alias allows immutable objects to be serialised seamlessly with re
 
 ```javscript
 var favouritePeople = {
-	joe: im.object({ name: 'joe bloggs', age: 34 })
+	joe: im.object({ name: 'joe bloggs', age: 34, sports: im.array(['golf', 'carting']) })
 }
 
-var data = JSON.stringify(favouritePeople)
-
-data // = { joe: { name: 'joe bloggs', age: 34 } }
+JSON.stringify(favouritePeople) // = '{ "joe": { "name": "joe bloggs", "age": 34, "sports": ["golf", "carting"] } }'
 ```
 
-## immutable.array
+## Value Equality
 
-Create a new immutable array:
+Collections can be checked for equality:
 
 ```javascript
-var arr = im.array()
+var person1 = im.object({ name: 'joe bloggs', age: 34 })
+var person2 = im.object({ name: 'joe bloggs', age: 34 })
+var person3 = im.object({ name: 'joe bloggs', age: 34, sport: 'golf' })
+
+person1.equal(person2) //= true
+person3.equal(person2) //= false
 ```
 
-or with initial values:
+Collections are considered equal when:
+
+* They are immutable
+* They have all the same keys
+* All values are:
+** Mutable objects or primtive values that are strictly equal (===),
+** Immutable objects that are .equal to one another
+
+## Iteration methods
+
+Immutable objects and arrays can be iterated over almost identically, except that:
+* objects iterate over *all* keys, and return objects where appropriate;
+* arrays iterate over *only numberic* keys, and return arrays where appropriate.
+
+All iterator methods (unless mentioned) will pass the value, the key, and the original immutable object to their callback functions.
+
+### .map
 
 ```javascript
-var arr = im.array([1, 2, 3, 4])
+var inc = function(a){ return a + 1 }
+
+var coordinates = im.object({ x: 1, y: 1 })
+coordinates.map(inc).mutable() //= { x: 2, y: 3 }
+
+var numbers = im.array([1, 2, 3, 4, 5])
+numbers.map(inc).mutable() //= [2, 3, 4, 5, 6]
 ```
 
-### .assoc/.dissoc/.get/.has
-
-Work identically in imutable.array as they do in immutable.object, except that they keep the .length property of the array up to date.
-
-### .length
-
-Check the 'length' of an immutable array:
+### .forEach
 
 ```javascript
-var arr = im.array([1, 2, 3])
-arr.length //= 3
+var log = console.log.bind(console)
+
+var person = im.object({ name: 'joe bloggs', age: 34 })
+person.map(log)
+// *log output*
+// 'joe bloggs' 'name' person
+// 34           'age'  person
 ```
 
-### .mutable / .toJSON
-
-Create a regular JavaScript object from an immutable one:
+### .filter
 
 ```javascript
-var todo = im.array(['write README', 'run tests on all supported platform'])
+var isNum = function(a){ return typeof a === 'number' }
 
-todo.mutable() //= ['write README', 'run tests on all supported platform']
+var person = im.object({ name: 'joe bloggs', age: 34 })
+person.filter(isNum).mutable() //= { age: 34 }
+
+var alphaNumber = im.array(['a', 1, 'b', 2, 'c', 3])
+alphaNumber.filter(isNum).mutable() //= [1, 2, 3]
 ```
 
-The `.toJSON` alias allows immutable objects to be serialised seamlessly with regular objects:
+### .every
 
-```javscript
-var lists = {
-	todo: im.array(['write README', 'run tests on all supported platform'])
+```javascript
+var isNum = function(a){ return typeof a === 'number' }
+
+im.object({ name: 'joe bloggs', age: 34 }).every(isNum) //= false
+im.object({ x: 1, y: 2 }).every(isNum) //= true
+
+im.array(['a', 1, 'b', 2, 'c', 3]).every(isNum) //= false
+im.array([1, 2, 3]).every(isNum) //= true
+```
+
+### .some
+
+```javascript
+var isNum = function(a){ return typeof a === 'number' }
+
+im.object({ name: 'joe bloggs', sport: 'golf' }).some(isNum) //= false
+im.object({ name: 'joe bloggs', age: 34 }).some(isNum) //= true
+
+im.array(['a', 'b', 'c']).some(isNum) //= false
+im.array(['a', 1, 'b', 2, 'c', 3]).every(isNum) //= true
+```
+
+### .reduce
+
+```javascript
+var flip = function(coll, val, key){
+	return coll.assoc(key, val)
 }
 
-var data = JSON.stringify(lists)
+var coords = im.object({ x: '1', y: '2', z: '3' })
+var flippedCoords = coords.reduce(flip, im.object())
+flippedCoords.mutable() //= { 1: 'x', 2: 'y', 3: 'z' }
 
-data // = { todo: ['write README', 'run tests on all supported platform'] }
+var cat = function(a, b){ return a + b }
+var letters = im.array(['a', 'b', 'c'])
+letters.reduce(cat)  //= 'abc'
 ```
 
+## Array Methods
+
+Since arrays are *ordered* collections, they have some methods of their own, that only make sense in an ordered context:
+
+### .reduceRight
+
+```javascript
+var cat = function(a, b){ return a + b }
+var letters = im.array(['a', 'b', 'c'])
+letters.reduceRight(cat)  //= 'cba'
+```
+
+### .push
+
+```javascript
+var numbersTo3 = im.array([1, 2, 3])
+var numbersTo4 = numbersTo3.push(4)
+
+numbersTo4.mutable() //= [1, 2, 3, 4]
+```
+
+### .indexOf
+
+```javascript
+var mixed = im.array([1, 2, 3, im.object({ x: 3 }), { x: 3 }])
+mixed.indexOf('a')      //= -1 -- 'a' not in array
+mixed.indexOf({ x: 3 }) //= -1 -- mutable objects are compared by reference
+mixed.indexOf(im.object({ x: 3 })) //= 3 -- immutable objects are compared by value
+mixed.indexOf(3) //= 2 -- primitives are compared by value
+```
+
+## Library Functions
+
+## .isImmutableCollection
+
+A predicate that returns true if the object is an immutable one, such as produced by this library.
+
+```javascript
+im.isImmutableCollection(im.array([1, 2, 3])) //= true
+im.isImmutableCollection(Object.freeze({}))   //= false - you couldn't assoc/dissoc/get/set on it
+```
